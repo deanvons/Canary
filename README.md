@@ -207,13 +207,37 @@ flowchart LR
 
 ## 🔍 What to notice in the code
 
-*Completed once the code for this phase is written.*
+**[`Src/main.c`](Src/main.c) — the address tree**
+The first block of macros rebuilds the datasheet's memory map one level at a time: peripheral base, then the AHB1 bus, then GPIOA and the RCC as offsets from it. Each base is built from the one above, so a typo in one place can't quietly disagree with another. Compare each value with the trail table in [Why we made this decision](#-why-we-made-this-decision).
+
+**[`Src/main.c`](Src/main.c) — the register macros**
+`RCC_AHB1ENR`, `GPIOA_MODER` and `GPIOA_ODR` each turn an address into `*(volatile uint32_t *)(...)`: cast to a pointer to a 32-bit value the hardware may change, then dereference it. That is why the rest of the code can write `GPIOA_ODR ^= BEACON_PIN` as if `GPIOA_ODR` were an ordinary variable. In phase 2 these hand-built macros get replaced, so look closely at what they do now.
+
+**[`Src/main.c`](Src/main.c) — the bit masks**
+`GPIOAEN`, `BEACON_PIN` and the two `BEACON_MODE_BIT` masks give a name to every bit the code touches. Pin 5's mode field is *two* bits wide (11:10), which is why there are two mode masks and two writes: one `|=` to set bit 10, one `&= ~` to clear bit 11. Every other pin's mode bits — including the debugger's on PA13 and PA14 — are left exactly as they were.
+
+**[`Src/main.c`](Src/main.c) — enable, configure, drive**
+The three numbered comments in `main` follow the order from [Why we made this decision](#-why-we-made-this-decision): clock first, then mode, then output. The `// NOTE:` explains why there is no write for push-pull — the output type register already resets to push-pull. Inside the superloop, `^=` flips bit 5 of the output data register on every pass.
+
+**[`Src/main.c`](Src/main.c) — the delay**
+The empty `for` loop marked `DELIBERATE` is the beacon's only sense of time: the CPU counts to `BEACON_DELAY_COUNT` and does nothing else. The counter is left as a plain variable on purpose — challenge 6 shows you what the compiler does with it. This loop is replaced by a real timer in phase 8.
+
+**[`Startup/startup_stm32f411retx.s`](Startup/startup_stm32f411retx.s)** and the linker scripts are untouched. They run before `main` and decide where your code lives in memory; you'll read them properly in phase 12.
 
 ---
 
 ## ▶️ Running this branch
 
-*Completed once the code for this phase is written.*
+You only need the Nucleo board and its USB cable — no breadboard yet.
+
+```
+git checkout phase-01_first-light_registers
+```
+
+1. In STM32CubeIDE, select the `canary` project and press **F5** (Refresh) so it picks up the branch's files. (First time? See *Build, flash and debug* in the README on `main`.)
+2. **Build** (hammer). Expect one warning — *"FPU is not initialized…"* — and no errors.
+3. **Run** (green play button) with the board connected. The green LED **LD2** starts blinking — roughly once or twice a second.
+4. To watch the registers change, click **Debug** instead, open **Window → Show View → SFRs**, expand **RCC → AHB1ENR** and **GPIOA → MODER / ODR**, and step over each line in `main` with **F6**. You'll see `GPIOAEN` set, pin 5's mode become `01`, and `ODR5` flip on every pass of the loop.
 
 ---
 
@@ -235,8 +259,8 @@ In phase 3 the crew will arm the probe with the blue user button. Without writin
 **Challenge 5 — Analytical: why bare metal?**
 Your laptop's CPU is far more powerful than the STM32F411. List three things the F411 has *on the same chip* that your laptop's CPU relies on separate chips or an operating system for. Then argue: why would you run Canary's beacon on bare metal rather than on a small Linux computer? Think about how quickly it starts, what happens when nobody is around to restart it, and whether the beacon flashes *on time*.
 
-**Challenge 6 — Analytical: the vanishing delay**
-The project builds with the compiler's optimisation switched off. Turn it on: open the project's **Properties → C/C++ Build → Settings → MCU GCC Compiler → Optimization**, set the level to **Optimize more (-O2)**, then build and flash. What happens to the beacon? Explain what the compiler decided about the empty delay loop, and why it was allowed to. Then fix it with one keyword you already met in this phase — and explain why that keyword fixes the loop but would *not* make the delay last a predictable amount of time. Set the optimisation level back to **None (-O0)** when you're done.
+**Challenge 6 — Analytical: the speeding beacon**
+The project builds with the compiler's optimisation switched off. Turn it on: open the project's **Properties → C/C++ Build → Settings → MCU GCC Compiler → Optimization**, set the level to **Optimize more (-O2)**, then build and flash. You haven't changed a line of code — so why does the beacon blink at a different speed? (Hint: open `Debug/canary.list` before and after, find the delay loop, and count its instructions.) Then add `volatile` to the loop counter and flash again. What changes, and why does `volatile` still not give the beacon a delay you can predict? One more thing to know: the C standard allows a compiler to delete a loop that has no visible effect at all, and some compilers do — `volatile` is what forbids that. Set the optimisation level back to **None (-O0)** when you're done.
 
 ---
 
