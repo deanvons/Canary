@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 340" width="800" height="340" role="img" aria-labelledby="title desc">
+  <title id="title">Canary survey probe</title>
+  <desc id="desc">A small yellow survey probe standing on a rust-coloured alien surface. Its landing beacon glows on top, a green status light is lit, and its antenna sends an uplink signal to a ship in the night sky.</desc>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#070b1f"/>
+      <stop offset="1" stop-color="#1c2452"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a4527"/>
+      <stop offset="1" stop-color="#3f1810"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe27a"/>
+      <stop offset="1" stop-color="#e2b52f"/>
+    </linearGradient>
+    <linearGradient id="dome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef3f8"/>
+      <stop offset="1" stop-color="#9eabbb"/>
+    </linearGradient>
+    <linearGradient id="planet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7d6cf0"/>
+      <stop offset="1" stop-color="#2b2670"/>
+    </linearGradient>
+    <radialGradient id="beaconGlow">
+      <stop offset="0" stop-color="#fff7c4" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#ffd84d" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffd84d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="greenGlow">
+      <stop offset="0" stop-color="#3ddc84" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#3ddc84" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="engineGlow">
+      <stop offset="0" stop-color="#8fe3ff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#8fe3ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="800" height="340" fill="url(#sky)"/>
+
+  <!-- Stars -->
+  <g fill="#ffffff">
+    <circle cx="40" cy="30" r="1.2" opacity="0.8"/>
+    <circle cx="190" cy="22" r="1" opacity="0.6"/>
+    <circle cx="240" cy="70" r="1.4" opacity="0.9"/>
+    <circle cx="300" cy="35" r="0.9" opacity="0.5"/>
+    <circle cx="350" cy="100" r="1.1" opacity="0.7"/>
+    <circle cx="420" cy="28" r="1.5" opacity="0.9"/>
+    <circle cx="470" cy="60" r="0.9" opacity="0.6"/>
+    <circle cx="530" cy="25" r="1.2" opacity="0.8"/>
+    <circle cx="560" cy="120" r="1" opacity="0.5"/>
+    <circle cx="610" cy="40" r="0.8" opacity="0.6"/>
+    <circle cx="760" cy="30" r="1.3" opacity="0.8"/>
+    <circle cx="770" cy="140" r="1" opacity="0.6"/>
+    <circle cx="640" cy="160" r="0.9" opacity="0.5"/>
+    <circle cx="200" cy="150" r="1" opacity="0.6"/>
+    <circle cx="60" cy="170" r="1.2" opacity="0.7"/>
+    <circle cx="280" cy="190" r="0.8" opacity="0.5"/>
+    <circle cx="520" cy="190" r="1" opacity="0.6"/>
+    <circle cx="720" cy="200" r="0.9" opacity="0.5"/>
+  </g>
+
+  <!-- Ringed planet -->
+  <circle cx="115" cy="88" r="38" fill="url(#planet)"/>
+  <ellipse cx="115" cy="88" rx="64" ry="11" fill="none" stroke="#c4b8ff" stroke-width="2.5" opacity="0.55" transform="rotate(-16 115 88)"/>
+
+  <!-- Ship in orbit -->
+  <g transform="translate(700 72) rotate(-8)">
+    <circle cx="-34" cy="0" r="14" fill="url(#engineGlow)"/>
+    <ellipse cx="0" cy="0" rx="32" ry="9" fill="#c9d1dc"/>
+    <path d="M-10 -8 L6 -18 L14 -8 Z" fill="#9eabbb"/>
+    <path d="M-10 8 L6 18 L14 8 Z" fill="#9eabbb"/>
+    <ellipse cx="14" cy="-1" rx="9" ry="4.5" fill="#5fb8e8"/>
+  </g>
+
+  <!-- Uplink: antenna to ship -->
+  <line x1="472" y1="146" x2="676" y2="80" stroke="#7fd1ff" stroke-width="2" stroke-dasharray="6 7" opacity="0.75"/>
+  <g fill="none" stroke="#7fd1ff" stroke-width="2" stroke-linecap="round" opacity="0.8">
+    <path d="M482 136 A12 12 0 0 1 488 148"/>
+    <path d="M487 128 A20 20 0 0 1 497 150"/>
+  </g>
+
+  <!-- Ground -->
+  <path d="M0 268 Q120 246 250 266 T520 260 T800 270 L800 340 L0 340 Z" fill="url(#ground)"/>
+  <g fill="#5a2415" opacity="0.8">
+    <ellipse cx="120" cy="292" rx="18" ry="6"/>
+    <ellipse cx="610" cy="300" rx="24" ry="7"/>
+    <ellipse cx="710" cy="284" rx="10" ry="4"/>
+    <ellipse cx="250" cy="310" rx="12" ry="4"/>
+  </g>
+
+  <!-- Probe shadow -->
+  <ellipse cx="400" cy="287" rx="80" ry="6" fill="#000000" opacity="0.35"/>
+
+  <!-- Legs -->
+  <g stroke="#9aa3b5" stroke-width="5" stroke-linecap="round">
+    <line x1="400" y1="248" x2="400" y2="279"/>
+    <line x1="352" y1="246" x2="322" y2="281"/>
+    <line x1="448" y1="246" x2="478" y2="281"/>
+  </g>
+  <g fill="#7b8598">
+    <ellipse cx="400" cy="281" rx="10" ry="3"/>
+    <ellipse cx="320" cy="283" rx="13" ry="3.5"/>
+    <ellipse cx="480" cy="283" rx="13" ry="3.5"/>
+  </g>
+
+  <!-- Antenna mast and dish -->
+  <line x1="444" y1="204" x2="466" y2="152" stroke="#c9d1dc" stroke-width="3" stroke-linecap="round"/>
+  <path d="M458 150 Q468 136 480 146 Z" fill="#dfe6ee" stroke="#8792a3" stroke-width="1.5"/>
+
+  <!-- Beacon glow and dome -->
+  <circle cx="400" cy="174" r="44" fill="url(#beaconGlow)"/>
+  <rect x="396" y="178" width="8" height="10" rx="1.5" fill="#8792a3"/>
+  <circle cx="400" cy="174" r="7" fill="#fff6c2"/>
+  <path d="M362 204 A38 24 0 0 1 438 204 Z" fill="url(#dome)" stroke="#7b8798" stroke-width="1.5"/>
+
+  <!-- Body -->
+  <path d="M346 250 L454 250 L470 215 Q472 205 461 204 L339 204 Q328 205 330 215 Z" fill="url(#body)" stroke="#8a6500" stroke-width="2"/>
+  <line x1="336" y1="224" x2="464" y2="224" stroke="#8a6500" stroke-width="1.2" opacity="0.5"/>
+
+  <!-- Status lights: SAFE lit, CAUTION and HAZARD off -->
+  <circle cx="368" cy="237" r="11" fill="url(#greenGlow)"/>
+  <circle cx="368" cy="237" r="5" fill="#3ddc84" stroke="#1d6b40" stroke-width="1"/>
+  <circle cx="385" cy="237" r="5" fill="#f5a623" opacity="0.35" stroke="#6b4a10" stroke-width="1"/>
+  <circle cx="402" cy="237" r="5" fill="#ff4d4f" opacity="0.35" stroke="#6b1a1b" stroke-width="1"/>
+
+  <!-- Canary emblem -->
+  <g fill="#3a2a00">
+    <path d="M424 236 L417 231 L418 241 Z"/>
+    <ellipse cx="434" cy="236" rx="10" ry="6.5"/>
+    <circle cx="443" cy="229" r="4.8"/>
+  </g>
+  <path d="M447 228 L453 229.5 L447 231.5 Z" fill="#e07b00"/>
+  <circle cx="444.3" cy="228" r="1" fill="#ffe27a"/>
+  <path d="M428 234 Q434 229 440 235" fill="none" stroke="#ffe27a" stroke-width="1.2" opacity="0.7"/>
+
+  <!-- Title -->
+  <text x="36" y="316" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#ffe27a">CANARY</text>
+  <text x="36" y="333" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11.5" letter-spacing="1" fill="#f0dcc4" opacity="0.85">planetary survey probe · bare-metal firmware</text>
+</svg>

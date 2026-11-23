@@ -1,5 +1,9 @@
 # Canary
 
+<p align="center">
+  <img src="docs/images/canary-probe.svg" alt="The Canary survey probe on a rust-coloured alien surface, its landing beacon glowing and its antenna linked to a ship in orbit" width="720">
+</p>
+
 Canary is a small survey probe that a ship drops onto a planet before anyone lands. Like a canary in a coal mine, its one job is to tell the crew whether the surface is safe. This repo is the probe's firmware: bare-metal C running directly on an STM32 microcontroller, with no operating system underneath.
 
 The probe grows phase by phase from a silent board into a working field instrument. It starts by blinking its landing beacon through hand-written register addresses, then gains status lights, an arming button, a serial uplink to the ship, sensors for temperature, pressure and radiation, precise timers and interrupts. Each phase introduces a real need on the probe, and the hardware feature introduced in that phase is the answer to it.
