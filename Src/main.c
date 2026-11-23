@@ -53,10 +53,33 @@
 #define BEACON_MODE_BIT0      (1U << 10)  // pin 5's mode field is bits 11:10 of GPIOA_MODER
 #define BEACON_MODE_BIT1      (1U << 11)
 
+#define BEACON_DELAY_COUNT    (500000U)   // picked by trial and error — see the README's thought pieces
+
 int main(void)
 {
+    /* 1. Enable: port A's clock is off at reset, and an unclocked peripheral ignores every write. */
+    RCC_AHB1ENR |= GPIOAEN;
+
+    /*
+     * 2. Configure: PA5's mode field (bits 11:10) must become 01, general-purpose output.
+     * Set bit 10 and clear bit 11 separately, so no other pin's mode bits change.
+     */
+    GPIOA_MODER |= BEACON_MODE_BIT0;
+    GPIOA_MODER &= ~BEACON_MODE_BIT1;
+    // NOTE: the output type register resets to push-pull, so no write is needed for that
+
     // Superloop: everything the probe does will happen inside this loop, forever
     while (1)
     {
+        // 3. Drive: flip bit 5 — high lights the beacon, low switches it off
+        GPIOA_ODR ^= BEACON_PIN;
+
+        /*
+         * DELIBERATE: a busy-wait delay. The CPU counts and does nothing else.
+         * The counter is a plain variable on purpose — see challenge 6.
+         */
+        for (uint32_t i = 0; i < BEACON_DELAY_COUNT; i++)
+        {
+        }
     }
 }
