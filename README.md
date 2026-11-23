@@ -1,75 +1,30 @@
-# Canary
+# Phase README — Pre-flight
 
-![The Canary survey probe on a rust-coloured alien surface, its landing beacon glowing and its antenna linked to a ship in orbit](docs/images/CanaryProbe.png)
+> **Phase 00 — Bits, bytes and memory addresses** | Canary · Bare-Metal Programming
 
-Canary is a small survey probe that a ship drops onto a planet before anyone lands. Like a canary in a coal mine, its one job is to tell the crew whether the surface is safe. This repo is the probe's firmware: bare-metal C running directly on an STM32 microcontroller, with no operating system underneath.
+On the way down, you learn to read and change individual bits of a word in memory, at an address you can see.
 
-The probe grows phase by phase from a silent board into a working field instrument. It starts by blinking its landing beacon through hand-written register addresses, then gains status lights, an arming button, a serial uplink to the ship, sensors for temperature, pressure and radiation, precise timers and interrupts. Each phase introduces a real need on the probe, and the hardware feature introduced in that phase is the answer to it.
+Canary is still sealed inside its drop pod, falling towards the planet. Nothing is wired up and there is no light to switch on; the only thing on board you can see is the flight computer's memory, through the debugger. The flight computer records the whole descent in a single 32-bit **status word**: one bit for each event (heat shield gone, parachute out, legs extended), a small two-bit field for the descent stage, and the pod's ID in the top byte. Your job in this phase is to keep that word up to date as the descent happens, changing exactly the bits you mean to and nothing else.
 
-Canary sits in the same universe as the other learning repos: Calypso flies the ship, Xenolog logs what the crew finds, and Canary is the first thing on the ground.
+That might sound like a warm-up, but it is the whole of bare-metal programming in miniature. In the next phase you'll meet the chip's **registers**, and a register is nothing more than a 32-bit word at a fixed address, where each bit (or small group of bits) controls a piece of hardware. If binary, hex, addresses and masks still feel shaky when you get there, every line of phase 1 becomes guesswork, because you'd be learning the hardware and the bit-twiddling at the same time. Here you learn the bit-twiddling on a harmless word in memory, where a mistake costs nothing.
 
-See [docs/PRD.md](docs/PRD.md) for the full product brief.
-
----
-
-## 🔧 Prerequisites
-
-**Hardware**
-- STM32 **Nucleo-F411RE** development board
-- USB cable for the board (Mini-B on the Nucleo-64) — this powers the board, flashes it and carries the serial uplink
-- From phase 2 onwards: a breadboard, jumper wires, a few LEDs with resistors (220–330 Ω), a potentiometer (10 kΩ) and a temperature sensor. Each phase lists exactly what it needs.
-- Recommended: a USB logic analyzer (8-channel, 24 MHz) for watching signals on the pins
-
-**Software**
-- **STM32CubeIDE** — builds, flashes and debugs the firmware
-- **VS Code** (optional) — for editing; build and flash still happen in CubeIDE
-- A **serial terminal** (RealTerm, PuTTY or similar) — needed from phase 4, when the probe starts talking to the ship
-- **PulseView** (optional) — software for the logic analyzer
-
-**Documentation** — keep these open; you will use them in every phase. Download links and what each one is for: [docs/reference/](docs/reference/README.md)
-- STM32F411 **reference manual (RM0383)** — every peripheral register, bit by bit
-- STM32F411 **datasheet** — pinout, alternate functions and memory map
-- Nucleo-64 **user manual (UM1724)** — which pins the board's LED, button and USB serial are wired to
-- Arm **Cortex-M4 Devices Generic User Guide (DUI0553)** — SysTick, the NVIC and interrupts
-
-No electronics background is assumed. Whenever a phase adds a circuit, its README explains the circuit before the code.
+> **A note on scope.** Nothing happens on the board in this phase: no LED, no wiring. Everything you do, you watch in the debugger. The startup file and linker script also run before `main`. The linker script is what decides where in memory your status word ends up, and you'll look at it properly in phase 12. The build's *"FPU is not initialized"* warning is expected and harmless.
 
 ---
 
-## 🗂️ What's in the blank project
+## 🗺️ Contents
 
-`main` is a freshly generated STM32CubeIDE project for the STM32F411RE with nothing added. Everything here runs before or around your code:
-
-| File | What it does |
-|---|---|
-| `Src/main.c` | Your code. For now, an empty `while (1)` loop — bare-metal firmware has no operating system to return to, so `main` never ends |
-| `Startup/startup_stm32f411retx.s` | The first code that runs after reset: sets up memory and calls `main`. Also holds the interrupt vector table (phase 12) |
-| `STM32F411RETX_FLASH.ld` | Linker script: where code and data live in the chip's Flash and RAM |
-| `Src/syscalls.c`, `Src/sysmem.c` | Small stubs the C library needs on a system without an OS (used when `printf` arrives in phase 4) |
-
-When you build, CubeIDE reports one warning: *"FPU is not initialized…"*. That is expected — the chip has a floating-point unit we are not using yet — and it does not stop the firmware from running.
-
----
-
-## ▶️ Build, flash and debug
-
-**Open the project**
-1. Clone this repo.
-2. In STM32CubeIDE: **File → Open Projects from File System…**, select the cloned folder, **Finish**.
-
-**Build**
-- Select the `canary` project and click the **hammer** (Build). The output appears in `Debug/`.
-
-**Flash and run**
-1. Connect the board over USB.
-2. Click **Run** (green play button). The first time, choose **STM32 C/C++ Application** and accept the default debugger (ST-LINK).
-3. CubeIDE builds, flashes the board and starts the firmware. On `main` you will see nothing happen — that is correct.
-
-**Debug**
-- Click **Debug** (the bug icon). Execution stops at the start of `main`; use **Step Over** (F6), **Step Into** (F5) and **Resume** (F8). From phase 1 you will also use the **SFRs** view to watch peripheral registers change.
-
-**Editing in VS Code**
-- Edit the files in VS Code, then switch to CubeIDE to build and flash. If CubeIDE does not notice a change, select the project and press **F5** (Refresh).
+- [Branch sequence](#-branch-sequence)
+- [Solutions to previous challenges and thought pieces](#-solutions-to-previous-challenges-and-thought-pieces)
+- [Why we made this decision](#-why-we-made-this-decision)
+- [What we built in the previous branch](#-what-we-built-in-the-previous-branch)
+- [What we're doing in this branch](#-what-were-doing-in-this-branch)
+- [The abstraction we earned](#-the-abstraction-we-earned)
+- [Learning goals](#-learning-goals)
+- [Key concepts](#-key-concepts)
+- [What to notice in the code](#-what-to-notice-in-the-code)
+- [Running this branch](#-running-this-branch)
+- [Challenges for students](#-challenges-for-students)
 
 ---
 
@@ -77,7 +32,8 @@ When you build, CubeIDE reports one warning: *"FPU is not initialized…"*. That
 
 | Branch | What it introduces | Abstraction level |
 |---|---|---|
-| `📌 main` | Blank STM32CubeIDE project — builds, flashes, runs an empty superloop | Scaffold only |
+| `main` | Blank STM32CubeIDE project — builds, flashes, runs an empty superloop | Scaffold only |
+| `📌 phase-00_pre-flight_bits-and-addresses` | **Binary and hex · bytes, half-words and words · memory addresses and little-endian · pointers from addresses · set, clear, toggle, test and bit fields** | Named bit masks |
 | `phase-01_first-light_registers` | Datasheet and memory map · registers via hand-written macros · RCC clock enable · blinking the landing beacon | Raw register addresses |
 | `phase-02_status-lights_cmsis-bsrr` | Register structs · vendor device header · SAFE / CAUTION / HAZARD lights · atomic set/reset (BSRR) | Register structs |
 | `phase-03_arming-button_gpio-input` | Button input · pull-ups · active-low · edge detection · debounce | — |
@@ -96,4 +52,200 @@ When you build, CubeIDE reports one warning: *"FPU is not initialized…"*. That
 | `phase-16_vendor-hal` | Vendor HAL · clock tree and PLL · tracing HAL calls to registers | Vendor HAL |
 | `phase-17_probe-modes_state-machines` | Finite state machines · probe modes · the limits of the superloop | State machines |
 
-Each phase branch builds on the previous one. Start every phase by reading its `README.md` — it explains the problem the phase solves, what changed in the code and what to try next.
+---
+
+## ✅ Solutions to previous challenges and thought pieces
+
+This is the first phase, so there is nothing to resolve yet. From phase 1 onwards, this section answers the previous phase's analytical challenges and thought pieces, and the first commit on each branch (`SOLUTION: …`) contains the code for its additive challenges.
+
+---
+
+## 💡 Why we made this decision
+
+### Learn on memory you can see, before hardware you can't
+
+You could learn bit manipulation on a laptop with `printf`. But on the probe there is no screen and, so far, no serial link, and in the next phase the words you change won't be variables — they'll be hardware registers, where a wrong bit can switch off the debugger's own connection to the chip. So this phase sits in between: a real word in the chip's real memory, watched through the same debugger you'll use for every phase after this one, where getting a bit wrong breaks nothing. It also gets you comfortable with the debugger's views now, while there's nothing else to learn at the same time.
+
+### Count in hex, because the documents do
+
+Underneath, everything in the chip is binary: each **bit** is a 0 or a 1, and a 32-bit word is 32 of them in a row, numbered from **bit 0** on the right (the least significant) to **bit 31** on the left. Binary is exact but unreadable — `11001010000000000000000000110101` is the probe's status word after touchdown. Decimal hides the bits entirely: the same value is 3,388,997,685, and there is no way to see from that which flags are set.
+
+**Hexadecimal** is the compromise every datasheet uses, because each hex digit stands for exactly four bits. So you can convert a word one digit at a time, without arithmetic:
+
+| Hex digit | `C` | `A` | `0` | `0` | `0` | `0` | `3` | `5` |
+|---|---|---|---|---|---|---|---|---|
+| Bits | 31–28 | 27–24 | 23–20 | 19–16 | 15–12 | 11–8 | 7–4 | 3–0 |
+| Binary | `1100` | `1010` | `0000` | `0000` | `0000` | `0000` | `0011` | `0101` |
+
+Reading `0xCA000035` right to left, the last digit `5` (`0101`) tells you bits 0 and 2 are set, and the `3` (`0011`) tells you bits 4 and 5 are set. That's how you'll read every register value in this repo.
+
+The status word is laid out like this. It's the same kind of table the reference manual draws for every register:
+
+| Bits | Name | Meaning |
+|---|---|---|
+| 31–24 | Pod ID | `0xCA` — written by the ship before the drop ("CA" for Canary) |
+| 23–8 | — | Unused, always 0 |
+| 7 | Heartbeat | Toggled forever once the probe has landed, to show it is still running |
+| 6 | — | Unused |
+| 5–4 | Descent stage | A two-bit field: `00` orbit, `01` entry, `10` descent, `11` landed |
+| 3 | — | Unused |
+| 2 | Legs extended | Set when the landing legs are out |
+| 1 | Parachute out | Set when the parachute opens, cleared when it is cut away on touchdown |
+| 0 | Heat shield jettisoned | Set when the heat shield drops away |
+
+### Memory is a row of numbered bytes
+
+The chip's memory is a long row of **bytes** (8 bits each), and every byte has its own number: its **address**. On the STM32F411, the 128 KB of SRAM where your variables live starts at address `0x2000 0000`. A 32-bit word doesn't fit in one byte, so it takes four bytes at four consecutive addresses. You name the word by the address of its first byte.
+
+Which byte goes first? The Cortex-M4 is **little-endian**: the *least* significant byte goes at the lowest address. So when you look at the status word in the debugger's memory view, the pod ID `0xCA` — the top byte — appears *last*, not first:
+
+```mermaid
+flowchart LR
+    W["Status word<br/>0xCA000035"] --> B0["address + 0<br/>0x35"]
+    W --> B1["address + 1<br/>0x00"]
+    W --> B2["address + 2<br/>0x00"]
+    W --> B3["address + 3<br/>0xCA"]
+```
+
+An address is just a number. C lets you take a variable's address with `&`, store it in an ordinary integer, and turn that integer back into a pointer — and once you have a pointer, reading or writing through it reads or writes those bytes of memory. You can even point at the same address with different pointer types: as one 32-bit word (`uint32_t`), as two 16-bit half-words (`uint16_t`) or as four separate bytes (`uint8_t`). This is the move phase 1 makes with the chip's registers, except that there you'll take the number from the datasheet instead of from `&`.
+
+### Change only the bits you mean to
+
+The status word holds several pieces of information at once, so you can almost never write the whole word. Writing `=` replaces all 32 bits: set the parachute flag that way and you've also wiped the pod ID, the stage and every other flag. Instead, every update reads the word, changes some bits and writes it back, using a **mask** (a value with only the bits you care about set):
+
+| Operation | Operator | What it does |
+|---|---|---|
+| **Set** a bit | `\|=` mask | Forces the masked bits to 1, leaves the rest alone |
+| **Clear** a bit | `&= ~`mask | Forces the masked bits to 0, leaves the rest alone |
+| **Toggle** a bit | `^=` mask | Flips the masked bits, leaves the rest alone |
+| **Test** a bit | `&` mask, compared with 0 | Tells you whether the masked bits are set, changes nothing |
+
+A **field** of more than one bit, like the descent stage, needs two steps: clear the whole field, then set the new value shifted into position. If you skip the clear, the old and new values get mixed together. Moving from entry (`01`) to descent (`10`) by setting bits alone gives you `11`, so the flight computer would record a landing while the probe is still on its parachute.
+
+### Name your bits
+
+There are three ways to write "set the parachute flag", and they all produce exactly the same machine code:
+
+| Style | How it looks | What you have to know to read it |
+|---|---|---|
+| Raw hex | `*status \|= 0x00000002;` | That `0x2` means bit 1, and that bit 1 is the parachute |
+| Shift | `*status \|= (1U << 1);` | That bit 1 is the parachute |
+| Named mask | `*status \|= PARACHUTE_OUT;` | Nothing — it says what it does |
+
+The code in this phase uses named masks, built from shifts in one place at the top of the file. It is still a lot of manual work: every bit needs its own `#define`, and every position has to be looked up and typed correctly. Keep an eye on that cost — in phase 1 you do the same for real hardware registers, and in phase 2 you'll see how the industry cuts it down.
+
+---
+
+## ⏮️ What we built in the previous branch
+
+`main` left you a freshly generated STM32CubeIDE project for the STM32F411RE: a startup file, linker scripts, and a `main.c` containing nothing but an empty `while (1)` loop. It builds, flashes and runs, but does nothing you can see. The CPU is running and the memory is there; nothing in your code uses either yet.
+
+---
+
+## 🎯 What we're doing in this branch
+
+- **`Src/main.c` — the status word:** a `volatile uint32_t descent_status` in SRAM, starting as `0xCA000000` (the pod ID in the top byte, everything else 0).
+- **`Src/main.c` — named masks:** a `#define` for each flag and for the descent-stage field, built from `1U << n` shifts, so no raw hex appears in the logic.
+- **`Src/main.c` — from address to pointer:** take the status word's address with `&`, keep it as a plain number, and turn it back into a `uint32_t` pointer that all the updates go through. Then point a `uint16_t` pointer and a `uint8_t` pointer at the same address, to see the word as half-words and bytes.
+- **`Src/main.c` — the descent:** a sequence of masked updates you step through in the debugger: set the entry stage, set the heat-shield and parachute flags, change the stage field to descent, set the legs flag, test it to declare landing, clear the parachute flag.
+- **`Src/main.c` — the superloop:** toggle the heartbeat bit forever, so the word never stops changing.
+
+---
+
+## 🏆 The abstraction we earned
+
+> Named masks turn the status word from a number you have to decode into a set of named switches. `*status |= PARACHUTE_OUT` says what it does; `*status |= 0x00000002` only says which bit it touches, and you have to remember the rest. Every bit position is written down once, at the top of the file, instead of being retyped (and possibly mistyped) wherever it's used. Phase 1 uses exactly this pattern for the chip's registers — the only new thing there is where the address comes from.
+
+---
+
+## 🧑🏻‍🏫 Learning goals
+
+### Understand
+- **Convert** the status word between binary, hex and decimal — for example `0xCA000035` — and explain why the documents use hex: each hex digit is exactly four bits.
+- **Identify** which bit positions of the status word hold the heat-shield flag, the descent-stage field and the pod ID, numbering from bit 0 on the right to bit 31 on the left.
+- **Describe** memory as a row of numbered bytes, and find where the STM32F411's SRAM, which holds `descent_status`, starts in the address space.
+- **Explain** why `*status = PARACHUTE_OUT` would wipe the pod ID and the stage, while `*status |= PARACHUTE_OUT` leaves them alone.
+- **Explain** why the status word's address can change when you add a variable to the program, while the address of a hardware register — which you'll meet in phase 1 — never does.
+
+### Apply
+- **Read** the same status word as one `uint32_t` word, two `uint16_t` half-words and four `uint8_t` bytes, and say which C type matches each size.
+- **Access** the status word through a pointer built from the number in `status_address`, and relate that number to `&descent_status`.
+- **Use** `|=`, `&= ~`, `^=` and `&` with `1U << n` masks to set, clear, toggle and test the descent flags.
+- **Update** the two-bit descent-stage field by clearing it first, then writing the new stage shifted into position.
+
+### Analyze
+- ⚠ **Predict** the four bytes the debugger's memory view shows at the status word's address, and explain why the pod ID `0xCA` appears last.
+
+### Evaluate
+- **Compare** a raw hex constant, a shift expression and a named mask for the same update. Which is easier to read, and which makes a mistake easier to miss?
+
+---
+
+## 🔑 Key concepts
+
+| Concept | Plain English |
+|---|---|
+| **Bit** | One binary digit, 0 or 1 — the smallest thing the chip stores. |
+| **Bit position** | A bit's place in a word, counted from bit 0 (rightmost, least significant) to bit 31 (leftmost, most significant). |
+| **Binary / hexadecimal** | Base 2 and base 16. One hex digit is exactly four bits, which makes hex the easy way to read and write binary. |
+| **Byte / half-word / word** | 8, 16 and 32 bits — `uint8_t`, `uint16_t` and `uint32_t` in C. On a Cortex-M, a *word* is 32 bits. |
+| **Address** | The number of a byte in memory. A word occupies four addresses and is named by the first. |
+| **SRAM** | The chip's working memory for variables; on the STM32F411 it starts at `0x2000 0000`. Its contents are lost when power goes. |
+| **Little-endian** | The least significant byte of a multi-byte value is stored at the lowest address. The Cortex-M4 works this way. |
+| **Pointer** | A variable holding an address; reading or writing through it (`*p`) reads or writes the memory at that address. |
+| **`uintptr_t`** | An integer type big enough to hold an address, for when you want to treat an address as a plain number. |
+| **Bit mask** | A value with only the bits you care about set, like `1U << 1`, used to change those bits and nothing else. |
+| **Bit field** | A group of neighbouring bits that together hold one value, like the two-bit descent stage. |
+| **Read-modify-write** | Reading a word, changing some of its bits and writing it back. `\|=`, `&= ~` and `^=` all do this. |
+| **`volatile`** | Tells the compiler that something outside your code (here, you in the debugger) may read or change this value, so every read and write must really happen. |
+| **Memory / Expressions views** | The debugger windows that show the bytes at any address, and the value of any C expression, in hex, binary or decimal. |
+
+---
+
+## 🔍 What to notice in the code
+
+*To be completed once the code is written.*
+
+---
+
+## ▶️ Running this branch
+
+*To be completed once the code is written.*
+
+---
+
+## ✏️ Challenges for students
+
+**Challenge 1 — Analytical: decode the word**
+Without the debugger, convert `0xCA000023` to binary and use the layout table in [Why we made this decision](#-why-we-made-this-decision) to say exactly what was happening on the probe at that moment: which flags were set and which stage was it in? Then work out the value of the word once the heartbeat bit is set after landing, in hex and in decimal. Why is hex the only one of the three you'd want to read every day?
+
+**Challenge 2 — Analytical: predict the memory view**
+Before you step through the code, write down the four bytes you expect to see at the status word's address — at `+0`, `+1`, `+2` and `+3` — at the very start, and again once the probe has landed. Then step through and check. Also predict what the code's `uint16_t` pointer reads as the *second* half-word (index 1). Explain the answers using the word *little-endian*.
+
+**Challenge 3 — Analytical: the premature landing**
+Find the two lines that change the descent stage from entry to descent. Comment out the first one — the clear — and step through again. What stage does the word show while the probe is still hanging under its parachute? Work it out in binary first, then confirm it in the debugger, and explain why a field always needs clearing before you write a new value into it.
+
+**Challenge 4 — Analytical: the `=` dry run**
+Change the line that sets the parachute flag from `|=` to `=`, and step over it. What happened to the pod ID, the stage and the heat-shield flag? Explain why. In phase 1, a register will hold the settings for many pins at once, including the pins that keep the debugger connected, and this mistake gets much more expensive there.
+
+**Challenge 5 — Additive: measure the dust**
+On touchdown, the probe should record how much dust its landing kicked up: a level from 0 to 7, stored in a new three-bit field at bits 10–8. Add the masks for the field and write a dust level of 5 at touchdown without disturbing any other bit. What is the status word, in hex, once the heartbeat bit is set? Check it in the debugger.
+
+**Challenge 6 — Additive: the moving word**
+While debugging, read the address of `descent_status` in the **Expressions** view (type `&descent_status`). Add a `#define` holding that address as a number, and build your status pointer from the `#define` instead of from `&`. Build, run and check that the descent still works. Now add a new variable *above* `descent_status` — for example `volatile uint32_t landing_site = 0x1234;` — then build and run again. What does your pointer point at now, and what happened to `descent_status`'s address? Put the code back to using `&` when you're done.
+
+**Challenge 7 — Analytical: an early look at a precedence trap**
+A crew member wants to check that the parachute is *not* out, and writes `if (!*status & PARACHUTE_OUT)`. Work out, step by step, what C actually evaluates first — look up the precedence of `!` and `&` — and what the condition comes out as for every value the status word ever has. Why can it never be true? How would you write it correctly? (You'll meet this exact bug again on a real input pin in phase 3.)
+
+---
+
+## 💭 Thought pieces for the next branch
+
+1. Your status word moved when you added a variable in front of it. The beacon's control register lives at an address that never moves. Why not, and which document would tell you where it is?
+2. Every bit you set changed something only in memory, and nothing outside the chip noticed. What would have to sit at the other end of a bit for it to light an LED?
+3. You named every mask and built one pointer by hand. How many of those would you need to control all 16 pins of one port, each with a two-bit mode field like the descent stage?
+
+---
+
+*Previous branch: [`main`]*
+*Next branch: [`phase-01_first-light_registers`]*
