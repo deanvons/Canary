@@ -53,7 +53,7 @@
 #define BEACON_MODE_BIT0      (1U << 10)  // pin 5's mode field is bits 11:10 of GPIOA_MODER
 #define BEACON_MODE_BIT1      (1U << 11)
 
-#define BEACON_DELAY_COUNT    (500000U)   // picked by trial and error — see the README's thought pieces
+#define BEACON_DELAY_COUNT    (900000U)   // picked by trial and error — see the README's thought pieces
 
 int main(void)
 {

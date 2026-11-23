@@ -105,7 +105,19 @@ flowchart TD
 
 ### Enable, configure, drive — always in that order
 
-Every peripheral on the chip starts switched **off**. To save power, the chip gates (cuts off) the clock to each peripheral until you ask for it through the **Reset and Clock Control (RCC)** block — and a peripheral without a clock simply ignores you. No error, no crash, just nothing. So the beacon needs three steps, in this order:
+Every peripheral on the chip starts switched **off**. To save power, the chip gates (cuts off) the clock to each peripheral until you ask for it through the **Reset and Clock Control (RCC)** block — and a peripheral without a clock simply ignores you. No error, no crash, just nothing.
+
+Here is the path the clock takes to reach port A. At reset the chip runs from its 16 MHz internal oscillator. That clock passes through the **AHB prescaler** — a divider that can slow the bus down, set to "divide by 1" at reset — onto the **AHB1 bus**, where port A sits. The last step is a gate: one bit in `RCC_AHB1ENR`, `GPIOAEN`. While that bit is 0 the clock stops at the gate and port A is frozen; set it to 1 and port A starts responding to your writes. Step 1 below is nothing more than opening that gate.
+
+```mermaid
+flowchart LR
+    SYS["System clock<br/>(16 MHz internal RC at reset)"] --> AHBP["AHB prescaler<br/>(÷1 at reset)"] --> AHB1["AHB1 bus"]
+    AHB1 --> GATE{"RCC_AHB1ENR<br/>GPIOAEN bit"}
+    GATE -->|"1: clock on"| GPIOA["GPIOA<br/>responds to writes"]
+    GATE -->|"0: clock off"| OFF["GPIOA<br/>ignores you"]
+```
+
+So the beacon needs three steps, in this order:
 
 1. **Enable** — set the `GPIOAEN` bit in `RCC_AHB1ENR` so port A receives a clock.
 2. **Configure** — set pin 5's two mode bits in `GPIOA_MODER` to `01`, *general-purpose output*.
@@ -194,14 +206,6 @@ Each register holds settings for many pins at once, so every write has to change
 | **Alternate function** | Most pins can be handed to another peripheral (a UART, an ADC, a timer) instead of plain on/off use. |
 | **MODER / ODR / IDR** | A GPIO port's mode register (input, output, alternate, analog), output data register (what you drive) and input data register (what the pin reads). |
 | **Push-pull output** | The pin actively drives both high (3.3 V) and low (0 V) — the default, and what the beacon uses. |
-
-```mermaid
-flowchart LR
-    SYS["System clock<br/>(16 MHz internal RC at reset)"] --> AHBP["AHB prescaler"] --> AHB1["AHB1 bus"]
-    AHB1 --> GATE{"RCC_AHB1ENR<br/>GPIOAEN bit"}
-    GATE -->|"1: clock on"| GPIOA["GPIOA<br/>responds to writes"]
-    GATE -->|"0: clock off"| OFF["GPIOA<br/>ignores you"]
-```
 
 ---
 
