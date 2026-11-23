@@ -1,0 +1,9 @@
+# Instructor tooling — never pushed to the student-facing remote
+.claude/
+CLAUDE.md
+
+# STM32CubeIDE build output and workspace metadata
+Debug/
+Release/
+.metadata/
+RemoteSystemsTempFiles/
