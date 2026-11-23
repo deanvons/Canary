@@ -26,10 +26,11 @@ See [docs/PRD.md](docs/PRD.md) for the full product brief.
 - A **serial terminal** (RealTerm, PuTTY or similar) — needed from phase 4, when the probe starts talking to the ship
 - **PulseView** (optional) — software for the logic analyzer
 
-**Documentation** — keep these open; you will use them in every phase
-- STM32F411 **datasheet** — pinout and memory map
+**Documentation** — keep these open; you will use them in every phase. Download links and what each one is for: [docs/reference/](docs/reference/README.md)
 - STM32F411 **reference manual (RM0383)** — every peripheral register, bit by bit
-- Nucleo-64 **user manual (UM1724)** — which pins the board's LED and button are wired to
+- STM32F411 **datasheet** — pinout, alternate functions and memory map
+- Nucleo-64 **user manual (UM1724)** — which pins the board's LED, button and USB serial are wired to
+- Arm **Cortex-M4 Devices Generic User Guide (DUI0553)** — SysTick, the NVIC and interrupts
 
 No electronics background is assumed. Whenever a phase adds a circuit, its README explains the circuit before the code.
 

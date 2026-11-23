@@ -2,6 +2,9 @@
 .claude/
 CLAUDE.md
 
+# Vendor reference PDFs — downloaded by each student, see docs/reference/README.md
+docs/reference/*.pdf
+
 # STM32CubeIDE build output and workspace metadata
 Debug/
 Release/
