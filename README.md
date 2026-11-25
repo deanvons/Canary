@@ -97,7 +97,7 @@ The status word is laid out like this. It's the same kind of table the reference
 
 A bit is just a 0 or a 1. On its own it means nothing. Its meaning comes from a table like the one above, which says what each bit stands for. That table is how we give meaning to the status word. Nothing in the chip knows that bit 1 is the parachute: we decided it, and the code follows that decision.
 
-So treat the status word as the Canary probe's own custom register. For now it's an ordinary variable in SRAM, and its bits mean only what our table says. From phase 1 on, you'll work with the chip's hardware registers. They work the same way, with one difference: their bits are wired to circuits, so setting a bit makes something happen.
+So treat the status word as the Canary probe's own custom register. For now it's an ordinary variable in SRAM, and its bits mean only what our table says. Like a real register, it is read as well as written. The flight code tests the legs flag before it declares a landing, and you can read the whole word from the debugger at any moment. From phase 1 on, you'll work with the chip's hardware registers. They work the same way, with one difference: their bits are wired to circuits, so setting a bit makes something happen.
 
 Bits carry meaning in two ways. A **flag** is a single bit that answers one yes/no question, like "is the parachute out?". The probe's three flags take three bits, and any mix of them can be set at once. A **field** is a group of bits that together pick one value from a list. Two bits give four values (`00`, `01`, `10`, `11`), three give eight, and *n* bits give 2ⁿ. The descent stage is a field because the probe is only ever in one stage at a time.
 
@@ -107,17 +107,37 @@ Text is bits too: ASCII is a table that gives each character its own byte. Store
 
 The chip's memory is a long row of **bytes** (8 bits each), and every byte has its own number: its **address**. On the STM32F411, the 128 KB of SRAM where your variables live starts at address `0x2000 0000`. A 32-bit word doesn't fit in one byte, so it takes four bytes at four consecutive addresses. You name the word by the address of its first byte.
 
-Which byte goes first? The Cortex-M4 is **little-endian**: the *least* significant byte goes at the lowest address. So when you look at the status word in the debugger's memory view, the pod ID `0xCA` — the top byte — appears *last*, not first:
+Which byte goes first? The Cortex-M4 is **little-endian**: the *least* significant byte goes at the lowest address. So when you look at the status word in the debugger's memory view, the pod ID `0xCA` — the top byte — appears *last*, not first.
+
+The diagram shows the status word's value after touchdown, `0xCA000035`, split into its four bytes. Here, `address` stands for wherever the status word happens to live in SRAM. You don't pick that number: the build tools do, and you'll read the real one in the debugger. Memory is numbered in bytes, so each address holds exactly one byte (eight bits, or two hex digits), and `+ 1` is simply the next number: the next byte along.
+
+Only the lowest byte, at `address + 0`, changes during the descent. The pod ID in the top byte is written before the drop, and bits 23–8 are unused, so the two middle bytes stay `0x00`. Each step of the descent sets or clears a few bits in that low byte: entry, heat shield and parachute, descent, legs out, touchdown and parachute cut away. By the end they add up to `0x35`. You'll watch each step happen in the debugger.
 
 ```mermaid
-flowchart LR
-    W["Status word<br/>0xCA000035"] --> B0["address + 0<br/>0x35"]
-    W --> B1["address + 1<br/>0x00"]
-    W --> B2["address + 2<br/>0x00"]
-    W --> B3["address + 3<br/>0xCA"]
+flowchart TB
+    W["Value of the status word: 0xCA000035<br/>(the address is a separate number: where it lives)"]
+    subgraph MEM["Memory: one box per byte, lowest address on the left"]
+        direction LR
+        B0["address + 0<br/><b>0x35</b><br/>0011 0101<br/>bits 7–0"]
+        B1["address + 1<br/><b>0x00</b><br/>0000 0000<br/>bits 15–8"]
+        B2["address + 2<br/><b>0x00</b><br/>0000 0000<br/>bits 23–16"]
+        B3["address + 3<br/><b>0xCA</b><br/>1100 1010<br/>bits 31–24"]
+        B0 ~~~ B1 ~~~ B2 ~~~ B3
+    end
+    W --> MEM
 ```
 
 An address is just a number. C lets you take a variable's address with `&`, store it in an ordinary integer, and turn that integer back into a pointer — and once you have a pointer, reading or writing through it reads or writes those bytes of memory. You can even point at the same address with different pointer types: as one 32-bit word (`uint32_t`), as two 16-bit half-words (`uint16_t`) or as four separate bytes (`uint8_t`). This is the move phase 1 makes with the chip's registers, except that there you'll take the number from the datasheet instead of from `&`.
+
+Adding to a pointer is different from adding to an address held as a plain number. Add 1 to the number and you get the next byte, as in the diagram. Add 1 to a *pointer* and C moves on by one whole item of the type it points to. The compiler knows how big that item is from the pointer's type. This is called **pointer arithmetic**, and `p[n]` is shorthand for `*(p + n)`:
+
+| Pointer type | Size of one item | `p + 1` is this many bytes further on |
+|---|---|---|
+| `uint8_t *` | 1 byte | 1 |
+| `uint16_t *` | 2 bytes | 2 |
+| `uint32_t *` | 4 bytes | 4 |
+
+So through a `uint8_t` pointer to the status word, `p[0]` to `p[3]` are the four bytes in the diagram, `0x35`, `0x00`, `0x00` and `0xCA`. Through a `uint16_t` pointer, `p[0]` and `p[1]` are the two half-words, `0x0035` and `0xCA00`.
 
 ### Change only the bits you mean to
 
@@ -157,7 +177,14 @@ The code in this phase uses named masks, built from shifts in one place at the t
 - **`Src/main.c` — the status word:** a `volatile uint32_t descent_status` in SRAM, starting as `0xCA000000` (the pod ID in the top byte, everything else 0).
 - **`Src/main.c` — named masks:** a `#define` for each flag and for the descent-stage field, built from `1U << n` shifts, so no raw hex appears in the logic.
 - **`Src/main.c` — from address to pointer:** take the status word's address with `&`, keep it as a plain number, and turn it back into a `uint32_t` pointer that all the updates go through. Then point a `uint16_t` pointer and a `uint8_t` pointer at the same address, to see the word as half-words and bytes.
-- **`Src/main.c` — the descent:** a sequence of masked updates you step through in the debugger: set the entry stage, set the heat-shield and parachute flags, change the stage field to descent, set the legs flag, test it to declare landing, clear the parachute flag.
+- **`Src/main.c` — the descent:** the probe starts in orbit, with the stage field at `00` and no flags set. Then come seven masked updates you step through in the debugger, one for each moment of the fall, in this order:
+  1. **Entry:** the probe drops out of orbit into the atmosphere. Change the stage field from orbit (`00`) to entry (`01`).
+  2. **Parachute opens:** set the parachute flag.
+  3. **Heat shield drops away:** set the heat-shield flag.
+  4. **Descent:** the probe is drifting down on its parachute. Change the stage field from entry (`01`) to descent (`10`).
+  5. **Legs out:** set the legs flag.
+  6. **Touchdown:** test the legs flag. If the legs are out, change the stage field from descent (`10`) to landed (`11`).
+  7. **Parachute cut away:** clear the parachute flag, so the parachute can't drag the probe across the ground.
 - **`Src/main.c` — the superloop:** toggle the heartbeat bit forever, so the word never stops changing.
 
 ---
@@ -203,6 +230,7 @@ The code in this phase uses named masks, built from shifts in one place at the t
 | **SRAM** | The chip's working memory for variables; on the STM32F411 it starts at `0x2000 0000`. Its contents are lost when power goes. |
 | **Little-endian** | The least significant byte of a multi-byte value is stored at the lowest address. The Cortex-M4 works this way. |
 | **Pointer** | A variable holding an address; reading or writing through it (`*p`) reads or writes the memory at that address. |
+| **Pointer arithmetic** | Adding to a pointer moves it by whole items of its type: `p + 1` is 1 byte on for a `uint8_t *`, 2 for a `uint16_t *` and 4 for a `uint32_t *`. |
 | **`uintptr_t`** | An integer type big enough to hold an address, for when you want to treat an address as a plain number. |
 | **Bit mask** | A value with only the bits you care about set, like `1U << 1`, used to change those bits and nothing else. |
 | **Bit field** | A group of neighbouring bits that together hold one value, like the two-bit descent stage. |
