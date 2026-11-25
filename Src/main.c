@@ -38,6 +38,10 @@
  */
 volatile uint32_t descent_status = (POD_ID_CANARY << POD_ID_POS) | (STAGE_ORBIT << STAGE_POS);
 
+// Copies of the landed word, taken half-word by half-word and byte by byte, for the debugger to show
+volatile uint16_t landed_halves[2];
+volatile uint8_t  landed_bytes[4];
+
 int main(void)
 {
     /* An address is just a number. The linker chose it; & tells us what it is. */
@@ -77,6 +81,21 @@ int main(void)
 
     // 7. Parachute cut away, so it can't drag the probe across the ground
     *status &= ~PARACHUTE_OUT;
+
+    /*
+     * The landed word, 0xCA000035, read through two more pointers to the same address.
+     * Pointer arithmetic: [1] is one whole item further on, 2 bytes for uint16_t, 1 byte for uint8_t.
+     */
+    volatile uint16_t *status_halves = (volatile uint16_t *)status_address;
+    volatile uint8_t  *status_bytes  = (volatile uint8_t *)status_address;
+
+    landed_halves[0] = status_halves[0];   // 0x0035
+    landed_halves[1] = status_halves[1];   // 0xCA00
+
+    landed_bytes[0] = status_bytes[0];     // 0x35: little-endian, so the low byte comes first
+    landed_bytes[1] = status_bytes[1];     // 0x00
+    landed_bytes[2] = status_bytes[2];     // 0x00
+    landed_bytes[3] = status_bytes[3];     // 0xCA: the pod ID sits at the highest address
 
     // Superloop: the probe has landed, and the heartbeat bit shows the flight computer is still running
     while (1)
