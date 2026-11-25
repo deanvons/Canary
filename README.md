@@ -119,9 +119,19 @@ Text is bits too: ASCII is a table that gives each character its own byte. Store
 
 The chip's memory is a long row of **bytes** (8 bits each), and every byte has its own number: its **address**. On the STM32F411, the 128 KB of SRAM where your variables live starts at address `0x2000 0000`. A 32-bit word doesn't fit in one byte, so it takes four bytes at four consecutive addresses. You name the word by the address of its first byte.
 
-So where does the status word live? You declare it in `main.c` as an ordinary variable, `descent_status`. When you build the program, the **linker** (the build tool that decides where everything goes in memory) gives it a place somewhere in that SRAM, at or above `0x2000 0000`. That's the address of the start of the SRAM, not of your variable. Your program, and so your variable, live on the board, not on your computer: the debugger on your computer only looks into the board's memory. The address isn't written anywhere in your code, so you have to find it out: `&descent_status` gives it to you in code, and the debugger's Expressions view shows it too. Add another variable in front of it, and the next build may move it.
+So where does the status word live? You declare it in `main.c` as an ordinary variable, `descent_status`. When you build the program, the **linker** (the build tool that decides where everything goes in memory) gives it a place somewhere in that SRAM, at or above `0x2000 0000`. That's the address of the start of the SRAM, not of your variable. Your program, and so your variable, live on the board, not on your computer: the debugger on your computer only looks into the board's memory. The address isn't written anywhere in your code, so you have to find it out: `&descent_status` gives it to you in code, and the debugger's Expressions view shows it too. Declare another variable above it in `main.c`, and the next build may give `descent_status` a different address.
 
-Which byte goes first? The Cortex-M4 is **little-endian**: the *least* significant byte goes at the lowest address. So when you look at the status word in the debugger's memory view, the pod ID `0xCA` — the top byte — appears *last*, not first.
+Which byte goes first? There are two possible orders, and this is called the **byte order** or **endianness**:
+
+- **Big-endian:** the *most* significant byte goes at the lowest address. This is the order you write the number in, left to right.
+- **Little-endian:** the *least* significant byte goes at the lowest address, so the bytes come out reversed.
+
+| Byte order | `address + 0` | `+ 1` | `+ 2` | `+ 3` |
+|---|---|---|---|---|
+| Big-endian | `CA` | `00` | `00` | `35` |
+| Little-endian | `35` | `00` | `00` | `CA` |
+
+Neither order is better. Each processor picks one and sticks to it. The Cortex-M4 is little-endian, so when you look at the status word in the debugger's memory view, the pod ID `0xCA` (the top byte) appears *last*, not first. Byte order starts to matter as soon as data leaves the chip: many network protocols and sensors send big-endian, and you'll have to swap the bytes yourself.
 
 The diagram shows the status word's value just after landing, `0xCA000035`, split into its four bytes. Here, `address` stands for wherever the linker put the status word. Memory is numbered in bytes, so each address holds exactly one byte (eight bits, or two hex digits), and `+ 1` is simply the next number: the next byte along.
 
@@ -214,11 +224,11 @@ The code in this phase uses named masks, built from shifts in one place at the t
 ### Understand
 - **Convert** the status word between binary, hex and decimal — for example `0xCA000035` — and explain why the documents use hex: each hex digit is exactly four bits.
 - **Identify** which bit positions of the status word hold the heat-shield flag, the descent-stage field and the pod ID, numbering from bit 0 on the right to bit 31 on the left.
-- **Describe** memory as a row of numbered bytes, and find where the STM32F411's SRAM, which holds `descent_status`, starts in the address space.
 - **Explain** why `*status = PARACHUTE_OUT` would wipe the pod ID and the stage, while `*status |= PARACHUTE_OUT` leaves them alone.
 - **Explain** why the status word's address can change when you add a variable to the program, while the address of a hardware register — which you'll meet in phase 1 — never does.
 
 ### Apply
+- **Write out** the four bytes of a 32-bit value in both little-endian and big-endian order, and say which order the Cortex-M4 uses.
 - **Read** the same status word as one `uint32_t` word, two `uint16_t` half-words and four `uint8_t` bytes, and say which C type matches each size.
 - **Access** the status word through a pointer built from the number in `status_address`, and relate that number to `&descent_status`.
 - **Use** `|=`, `&= ~`, `^=` and `&` with `1U << n` masks to set, clear, toggle and test the descent flags.
@@ -243,7 +253,7 @@ The code in this phase uses named masks, built from shifts in one place at the t
 | **Address** | The number of a byte in memory. A word occupies four addresses and is named by the first. |
 | **Linker** | The build tool that decides where each part of your program goes in memory, including the address of every global variable. |
 | **SRAM** | The chip's working memory for variables; on the STM32F411 it starts at `0x2000 0000`. Its contents are lost when power goes. |
-| **Little-endian** | The least significant byte of a multi-byte value is stored at the lowest address. The Cortex-M4 works this way. |
+| **Big-endian / little-endian** | The two byte orders. Big-endian stores the most significant byte of a multi-byte value at the lowest address; little-endian stores the least significant byte there. The Cortex-M4 is little-endian. |
 | **Pointer** | A variable holding an address; reading or writing through it (`*p`) reads or writes the memory at that address. |
 | **Pointer arithmetic** | Adding to a pointer moves it by whole items of its type: `p + 1` is 1 byte on for a `uint8_t *`, 2 for a `uint16_t *` and 4 for a `uint32_t *`. |
 | **`uintptr_t`** | An integer type big enough to hold an address, for when you want to treat an address as a plain number. |
@@ -294,7 +304,7 @@ A crew member wants to check that the parachute is *not* out, and writes `if (!*
 
 ## 💭 Thought pieces for the next branch
 
-1. Your status word moved when you added a variable in front of it. The beacon's control register lives at an address that never moves. Why not, and which document would tell you where it is?
+1. In Challenge 6, declaring a new variable above `descent_status` could give it a different address after the next build. In phase 1, you'll switch on Canary's landing beacon (the LED on the board) by writing to a hardware register, and that register's address never changes. Why not, and which document would tell you where it is?
 2. Every bit you set changed something only in memory, and nothing outside the chip noticed. What would have to sit at the other end of a bit for it to light an LED?
 3. You named every mask and built one pointer by hand. How many of those would you need to control all 16 pins of one port, each with a two-bit mode field like the descent stage?
 
