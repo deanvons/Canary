@@ -267,13 +267,58 @@ The code in this phase uses named masks, built from shifts in one place at the t
 
 ## 🔍 What to notice in the code
 
-*To be completed once the code is written.*
+**[`Src/main.c`](Src/main.c) — the layout block**
+The `#define`s at the top are the layout table from [Why we made this decision](#-why-we-made-this-decision), written in C. Each flag is a `1U << n` mask. The descent stage has three parts: its position (`STAGE_POS`), a mask covering both of its bits (`STAGE_MASK`, `3U << 4`), and the four values it can hold, `STAGE_ORBIT` to `STAGE_LANDED`. Every bit position in the program is written down here once and nowhere else.
+
+**[`Src/main.c`](Src/main.c) — the status word**
+`descent_status` is declared `volatile`, because you'll be reading and changing it from the debugger, outside the code's own view. Its starting value is built from the masks, `0xCA` shifted into the top byte, rather than typed as `0xCA000000`. Nothing in the file says *where* it lives; the linker decides that.
+
+**[`Src/main.c`](Src/main.c) — from address to pointer**
+The first two lines of `main` take `&descent_status`, keep it in `status_address` as a plain number (`uintptr_t`), and turn that number back into `status`, a `volatile uint32_t *`. Every update after that goes through `*status`, never through the name. Phase 1 does exactly this with a hardware register; the only difference is that the number comes from the reference manual.
+
+**[`Src/main.c`](Src/main.c) — the descent**
+The seven numbered comments follow the descent list in [What we're doing in this branch](#-what-were-doing-in-this-branch). Look at the shape of each update. Flags use a single `|=` to set or `&= ~` to clear. Every stage change takes two lines, an `&= ~STAGE_MASK` to clear the field and then an `|=` with the new value shifted into position. Step 6 only *reads*: `(*status & LEGS_EXTENDED) != 0U` tests one bit and changes nothing.
+
+**[`Src/main.c`](Src/main.c) — half-words and bytes**
+After touchdown, `status_halves` and `status_bytes` point at the same address as `status`, but as `uint16_t` and `uint8_t`. The copies into `landed_halves` and `landed_bytes` are there so the debugger can show you the result. The comments give the values you should see. `landed_bytes[0]` is `0x35` and `landed_bytes[3]` is `0xCA`, which is little-endian made visible.
+
+**[`Src/main.c`](Src/main.c) — the superloop**
+`*status ^= HEARTBEAT` flips bit 7 on every pass, so the word never stops changing. In phase 1 the same toggle drives the landing beacon.
+
+The startup file, linker script, `syscalls.c` and `sysmem.c` are untouched. The startup code is what gives `descent_status` its starting value before `main` runs; you'll read it properly in phase 12.
 
 ---
 
 ## ▶️ Running this branch
 
-*To be completed once the code is written.*
+You only need the Nucleo board and its USB cable. Nothing on the board changes, so all of this happens in the debugger.
+
+```
+git checkout phase-00_pre-flight_bits-and-addresses
+```
+
+1. In STM32CubeIDE, select the `canary` project and press **F5** (Refresh) so it picks up the branch's files. (First time? See *Build, flash and debug* in the README on `main`.)
+2. **Build** (hammer). Expect one warning — *"FPU is not initialized…"* — and no errors.
+3. Click **Debug** (the bug icon). The program is flashed and stops at the first line of `main`. The startup code has already given `descent_status` its starting value.
+4. Open **Window → Show View → Expressions** and add `descent_status`, `&descent_status`, `landed_halves` and `landed_bytes`. Right-click a value and choose **Number Format → Hex** (try **Binary** too).
+5. Open **Window → Show View → Memory**, add a monitor (the green **+**) and type `&descent_status`. If the view groups four bytes together, right-click and change the format to show one byte per column, so you see the bytes in address order.
+6. Press **F6** (Step Over) one line at a time and watch `descent_status` change:
+
+| After | `descent_status` | Bytes at `+0 +1 +2 +3` |
+|---|---|---|
+| Start, in orbit | `0xCA000000` | `00 00 00 CA` |
+| 1. Entry | `0xCA000010` | `10 00 00 CA` |
+| 2. Parachute opens | `0xCA000012` | `12 00 00 CA` |
+| 3. Heat shield drops away | `0xCA000013` | `13 00 00 CA` |
+| 4. Descent | `0xCA000023` | `23 00 00 CA` |
+| 5. Legs out | `0xCA000027` | `27 00 00 CA` |
+| 6. Touchdown | `0xCA000037` | `37 00 00 CA` |
+| 7. Parachute cut away | `0xCA000035` | `35 00 00 CA` |
+
+7. Step over the copies and check `landed_halves` (`0x0035`, `0xCA00`) and `landed_bytes` (`0x35`, `0x00`, `0x00`, `0xCA`).
+8. In the superloop, keep pressing **F6**: `descent_status` flips between `0xCA0000B5` and `0xCA000035` as the heartbeat toggles. Or press **Resume** (F8), then **Suspend**, and see which one you caught.
+
+> In this build, `&descent_status` is exactly `0x2000 0000`, the very start of SRAM. That's because it's the first variable with a starting value in the program, not because it was guaranteed. Challenge 6 shows you how easily that changes.
 
 ---
 
@@ -295,7 +340,7 @@ Change the line that sets the parachute flag from `|=` to `=`, and step over it.
 On touchdown, the probe should record how much dust its landing kicked up: a level from 0 to 7, stored in a new three-bit field at bits 10–8. Add the masks for the field and write a dust level of 5 at touchdown without disturbing any other bit. What is the status word, in hex, once the heartbeat bit is set? Check it in the debugger.
 
 **Challenge 6 — Additive: the moving word**
-While debugging, read the address of `descent_status` in the **Expressions** view (type `&descent_status`). Add a `#define` holding that address as a number, and build your status pointer from the `#define` instead of from `&`. Build, run and check that the descent still works. Now add a new variable *above* `descent_status` — for example `volatile uint32_t landing_site = 0x1234;` — then build and run again. What does your pointer point at now, and what happened to `descent_status`'s address? Put the code back to using `&` when you're done.
+While debugging, read the address of `descent_status` in the **Expressions** view (type `&descent_status`). Add a `#define` holding that address as a number, and build your status pointer from the `#define` instead of from `&`. Build, run and check that the descent still works. Now add a new variable *above* `descent_status`, and give it a job so the build keeps it: `volatile uint32_t landing_site = 0x1234;` above `descent_status`, and `landing_site = 0x5678;` as the first line of `main`. (A variable nothing uses is thrown away by the build and never takes up any memory, so it wouldn't move anything.) Build and step through the descent again. Where is `descent_status` now, what does your pointer point at, and which variable did the descent actually change? Put the code back to using `&` when you're done.
 
 **Challenge 7 — Analytical: an early look at a precedence trap**
 A crew member wants to check that the parachute is *not* out, and writes `if (!*status & PARACHUTE_OUT)`. Work out, step by step, what C actually evaluates first — look up the precedence of `!` and `&` — and what the condition comes out as for every value the status word ever has. Why can it never be true? How would you write it correctly? (You'll meet this exact bug again on a real input pin in phase 3.)
