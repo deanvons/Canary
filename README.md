@@ -93,6 +93,16 @@ The status word is laid out like this. It's the same kind of table the reference
 | 1 | Parachute out | Set when the parachute opens, cleared when it is cut away on touchdown |
 | 0 | Heat shield jettisoned | Set when the heat shield drops away |
 
+### Bits mean whatever we agree they mean
+
+A bit is just a 0 or a 1. On its own it means nothing. Its meaning comes from a table like the one above, which says what each bit stands for. That table is how we give meaning to the status word. Nothing in the chip knows that bit 1 is the parachute: we decided it, and the code follows that decision.
+
+So treat the status word as the Canary probe's own custom register. For now it's an ordinary variable in SRAM, and its bits mean only what our table says. From phase 1 on, you'll work with the chip's hardware registers. They work the same way, with one difference: their bits are wired to circuits, so setting a bit makes something happen.
+
+Bits carry meaning in two ways. A **flag** is a single bit that answers one yes/no question, like "is the parachute out?". The probe's three flags take three bits, and any mix of them can be set at once. A **field** is a group of bits that together pick one value from a list. Two bits give four values (`00`, `01`, `10`, `11`), three give eight, and *n* bits give 2ⁿ. The descent stage is a field because the probe is only ever in one stage at a time.
+
+Text is bits too: ASCII is a table that gives each character its own byte. Store the descent stage as the word `"descent"` and it takes eight bytes of memory, 64 bits. As a field it takes two. The pod ID shows the same thing from the other side. `0xCA` is one byte holding the number 202, and it only *looks* like "CA" because hex uses letters for the digits 10 to 15. The text `"CA"` would be two different bytes, `0x43 0x41`.
+
 ### Memory is a row of numbered bytes
 
 The chip's memory is a long row of **bytes** (8 bits each), and every byte has its own number: its **address**. On the STM32F411, the 128 KB of SRAM where your variables live starts at address `0x2000 0000`. A 32-bit word doesn't fit in one byte, so it takes four bytes at four consecutive addresses. You name the word by the address of its first byte.
