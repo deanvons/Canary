@@ -2,9 +2,7 @@
 
 > **Phase 00 — Bits, bytes and memory addresses** | Canary · Bare-Metal Programming
 
-On the way down, you learn to read and change individual bits of a word in memory, at an address you can see.
-
-Canary is still sealed inside its drop pod, falling towards the planet. Nothing is wired up and there is no light to switch on; the only thing on board you can see is the flight computer's memory, through the debugger. The flight computer records the whole descent in a single 32-bit **status word**: one bit for each event (heat shield gone, parachute out, legs extended), a small two-bit field for the descent stage, and the pod's ID in the top byte. Your job in this phase is to keep that word up to date as the descent happens, changing exactly the bits you mean to and nothing else.
+Canary is still sealed inside its drop pod, falling towards the planet. Nothing is wired up and there is no light to switch on; the only thing on board you can see is the flight computer's memory, through the debugger. In real life, the flight computer is the **STM32F411** microcontroller on your Nucleo board: a Cortex-M4 CPU, its memory and its peripherals, all on one chip. The flight computer records the whole descent in a single 32-bit **status word**: one bit for each event (heat shield gone, parachute out, legs extended), a small two-bit field for the descent stage, and the pod's ID in the top byte. Your job in this phase is to keep that word up to date as the descent happens, changing exactly the bits you mean to and nothing else.
 
 That might sound like a warm-up, but it is the whole of bare-metal programming in miniature. In the next phase you'll meet the chip's **registers**, and a register is nothing more than a 32-bit word at a fixed address, where each bit (or small group of bits) controls a piece of hardware. If binary, hex, addresses and masks still feel shaky when you get there, every line of phase 1 becomes guesswork, because you'd be learning the hardware and the bit-twiddling at the same time. Here you learn the bit-twiddling on a harmless word in memory, where a mistake costs nothing.
 
@@ -68,7 +66,7 @@ You could learn bit manipulation on a laptop with `printf`. But on the probe the
 
 ### Count in hex, because the documents do
 
-Underneath, everything in the chip is binary: each **bit** is a 0 or a 1, and a 32-bit word is 32 of them in a row, numbered from **bit 0** on the right (the least significant) to **bit 31** on the left. Binary is exact but unreadable — `11001010000000000000000000110101` is the probe's status word after touchdown. Decimal hides the bits entirely: the same value is 3,388,997,685, and there is no way to see from that which flags are set.
+Underneath, everything in the chip is binary: each **bit** is a 0 or a 1, and a 32-bit word is 32 of them in a row, numbered from **bit 0** on the right (the least significant) to **bit 31** on the left. Binary is exact but unreadable — `11001010000000000000000000110101` is the probe's status word just after landing, before the heartbeat starts. Decimal hides the bits entirely: the same value is 3,388,997,685, and there is no way to see from that which flags are set.
 
 **Hexadecimal** is the compromise every datasheet uses, because each hex digit stands for exactly four bits. So you can convert a word one digit at a time, without arithmetic:
 
@@ -78,6 +76,8 @@ Underneath, everything in the chip is binary: each **bit** is a 0 or a 1, and a 
 | Binary | `1100` | `1010` | `0000` | `0000` | `0000` | `0000` | `0011` | `0101` |
 
 Reading `0xCA000035` right to left, the last digit `5` (`0101`) tells you bits 0 and 2 are set, and the `3` (`0011`) tells you bits 4 and 5 are set. That's how you'll read every register value in this repo.
+
+Hex is used for two different things in this repo: **addresses** (where something is in memory) and **values** (what's stored there). Addresses are written with a gap in the middle, like `0x2000 0000`. Values are written without one, like `0xCA000035`.
 
 The status word is laid out like this. It's the same kind of table the reference manual draws for every register:
 
@@ -93,6 +93,18 @@ The status word is laid out like this. It's the same kind of table the reference
 | 1 | Parachute out | Set when the parachute opens, cleared when it is cut away on touchdown |
 | 0 | Heat shield jettisoned | Set when the heat shield drops away |
 
+Read with this table, the low byte `0x35` (`0011 0101`) describes the probe just after landing, before the heartbeat starts:
+
+| Bit(s) | Value | Meaning |
+|---|---|---|
+| 7 | `0` | Heartbeat: not started yet |
+| 6 | `0` | Unused |
+| 5–4 | `11` | Stage: landed |
+| 3 | `0` | Unused |
+| 2 | `1` | Legs extended |
+| 1 | `0` | Parachute cut away on touchdown |
+| 0 | `1` | Heat shield jettisoned |
+
 ### Bits mean whatever we agree they mean
 
 A bit is just a 0 or a 1. On its own it means nothing. Its meaning comes from a table like the one above, which says what each bit stands for. That table is how we give meaning to the status word. Nothing in the chip knows that bit 1 is the parachute: we decided it, and the code follows that decision.
@@ -107,11 +119,13 @@ Text is bits too: ASCII is a table that gives each character its own byte. Store
 
 The chip's memory is a long row of **bytes** (8 bits each), and every byte has its own number: its **address**. On the STM32F411, the 128 KB of SRAM where your variables live starts at address `0x2000 0000`. A 32-bit word doesn't fit in one byte, so it takes four bytes at four consecutive addresses. You name the word by the address of its first byte.
 
+So where does the status word live? You declare it in `main.c` as an ordinary variable, `descent_status`. When you build the program, the **linker** (the build tool that decides where everything goes in memory) gives it a place somewhere in that SRAM, at or above `0x2000 0000`. That's the address of the start of the SRAM, not of your variable. Your program, and so your variable, live on the board, not on your computer: the debugger on your computer only looks into the board's memory. The address isn't written anywhere in your code, so you have to find it out: `&descent_status` gives it to you in code, and the debugger's Expressions view shows it too. Add another variable in front of it, and the next build may move it.
+
 Which byte goes first? The Cortex-M4 is **little-endian**: the *least* significant byte goes at the lowest address. So when you look at the status word in the debugger's memory view, the pod ID `0xCA` — the top byte — appears *last*, not first.
 
-The diagram shows the status word's value after touchdown, `0xCA000035`, split into its four bytes. Here, `address` stands for wherever the status word happens to live in SRAM. You don't pick that number: the build tools do, and you'll read the real one in the debugger. Memory is numbered in bytes, so each address holds exactly one byte (eight bits, or two hex digits), and `+ 1` is simply the next number: the next byte along.
+The diagram shows the status word's value just after landing, `0xCA000035`, split into its four bytes. Here, `address` stands for wherever the linker put the status word. Memory is numbered in bytes, so each address holds exactly one byte (eight bits, or two hex digits), and `+ 1` is simply the next number: the next byte along.
 
-Only the lowest byte, at `address + 0`, changes during the descent. The pod ID in the top byte is written before the drop, and bits 23–8 are unused, so the two middle bytes stay `0x00`. Each step of the descent sets or clears a few bits in that low byte: entry, heat shield and parachute, descent, legs out, touchdown and parachute cut away. By the end they add up to `0x35`. You'll watch each step happen in the debugger.
+Only the lowest byte, at `address + 0`, changes during the descent. The pod ID in the top byte is written before the drop, and bits 23–8 are unused, so the two middle bytes stay `0x00`. Each step of the descent sets or clears a few bits in that low byte: entry, parachute opens, heat shield drops away, descent, legs out, touchdown and parachute cut away. By the end they add up to `0x35`. You'll watch each step happen in the debugger.
 
 ```mermaid
 flowchart TB
@@ -127,7 +141,7 @@ flowchart TB
     W --> MEM
 ```
 
-An address is just a number. C lets you take a variable's address with `&`, store it in an ordinary integer, and turn that integer back into a pointer — and once you have a pointer, reading or writing through it reads or writes those bytes of memory. You can even point at the same address with different pointer types: as one 32-bit word (`uint32_t`), as two 16-bit half-words (`uint16_t`) or as four separate bytes (`uint8_t`). This is the move phase 1 makes with the chip's registers, except that there you'll take the number from the datasheet instead of from `&`.
+An address is just a number. C lets you take a variable's address with `&`, store it in an ordinary integer, and turn that integer back into a pointer — and once you have a pointer, reading or writing through it reads or writes those bytes of memory. You can even point at the same address with different pointer types: as one 32-bit word (`uint32_t`), as two 16-bit half-words (`uint16_t`) or as four separate bytes (`uint8_t`). In this phase you could just use the name `descent_status`. The code goes through a pointer anyway, because a hardware register has no name in C, only an address. That's the move phase 1 makes with the chip's registers, except that there you'll take the number from the reference manual instead of from `&`.
 
 Adding to a pointer is different from adding to an address held as a plain number. Add 1 to the number and you get the next byte, as in the diagram. Add 1 to a *pointer* and C moves on by one whole item of the type it points to. The compiler knows how big that item is from the pointer's type. This is called **pointer arithmetic**, and `p[n]` is shorthand for `*(p + n)`:
 
@@ -227,6 +241,7 @@ The code in this phase uses named masks, built from shifts in one place at the t
 | **Binary / hexadecimal** | Base 2 and base 16. One hex digit is exactly four bits, which makes hex the easy way to read and write binary. |
 | **Byte / half-word / word** | 8, 16 and 32 bits — `uint8_t`, `uint16_t` and `uint32_t` in C. On a Cortex-M, a *word* is 32 bits. |
 | **Address** | The number of a byte in memory. A word occupies four addresses and is named by the first. |
+| **Linker** | The build tool that decides where each part of your program goes in memory, including the address of every global variable. |
 | **SRAM** | The chip's working memory for variables; on the STM32F411 it starts at `0x2000 0000`. Its contents are lost when power goes. |
 | **Little-endian** | The least significant byte of a multi-byte value is stored at the lowest address. The Cortex-M4 works this way. |
 | **Pointer** | A variable holding an address; reading or writing through it (`*p`) reads or writes the memory at that address. |
