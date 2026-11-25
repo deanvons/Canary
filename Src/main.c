@@ -40,8 +40,47 @@ volatile uint32_t descent_status = (POD_ID_CANARY << POD_ID_POS) | (STAGE_ORBIT 
 
 int main(void)
 {
-    // Superloop: everything the probe does will happen inside this loop, forever
+    /* An address is just a number. The linker chose it; & tells us what it is. */
+    uintptr_t status_address = (uintptr_t)&descent_status;
+
+    /*
+     * Turn the number back into a pointer. Every update below goes through it,
+     * the same way phase 1 reaches a hardware register that has no name in C.
+     */
+    volatile uint32_t *status = (volatile uint32_t *)status_address;
+
+    /* The descent: one masked update per moment of the fall. Step over each line and watch the word. */
+
+    // 1. Entry: stage 00 -> 01. Clear the whole field, then write the new stage into it
+    *status &= ~STAGE_MASK;
+    *status |= (STAGE_ENTRY << STAGE_POS);
+
+    // 2. Parachute opens
+    *status |= PARACHUTE_OUT;
+
+    // 3. Heat shield drops away
+    *status |= HEAT_SHIELD_JETTISONED;
+
+    // 4. Descent: stage 01 -> 10
+    *status &= ~STAGE_MASK;
+    *status |= (STAGE_DESCENT << STAGE_POS);
+
+    // 5. Legs out
+    *status |= LEGS_EXTENDED;
+
+    // 6. Touchdown: only declare a landing if the legs really are out
+    if ((*status & LEGS_EXTENDED) != 0U)
+    {
+        *status &= ~STAGE_MASK;
+        *status |= (STAGE_LANDED << STAGE_POS);
+    }
+
+    // 7. Parachute cut away, so it can't drag the probe across the ground
+    *status &= ~PARACHUTE_OUT;
+
+    // Superloop: the probe has landed, and the heartbeat bit shows the flight computer is still running
     while (1)
     {
+        *status ^= HEARTBEAT;
     }
 }
